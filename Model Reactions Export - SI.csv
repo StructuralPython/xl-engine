@@ -1,4 +1,4 @@
-﻿Story,Label,Unique Name,Output Case,Case Type,Step Type,FX,FY,FZ,MX,MY,MZ
+Story,Label,Unique Name,Output Case,Case Type,Step Type,FX,FY,FZ,MX,MY,MZ
 Base,1,161,Wind Envelope,Combination,Max,35.96002551,11.92441045,686.6219204,47.08421243,98.56318783,0.017497011
 Base,1,161,Wind Envelope,Combination,Min,-22.6861974,-9.683259369,525.7752674,-20.03953729,-77.08617317,-0.042304391
 Base,2,162,Wind Envelope,Combination,Max,46.39504838,4.65666579,1454.773355,65.68851188,116.4504266,0.043936567
