@@ -1,0 +1,21 @@
+[project]
+name = "xl-engine"
+version = "0.1.0"
+description = "Execute your existing Excel workbooks like they were Python functions. Uses XLWings."
+readme = "README.md"
+authors = [
+    { name = "Connor Ferster", email = "connor@structuralpython.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "xlwings>=0.33.15",
+]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
