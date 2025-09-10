@@ -8,7 +8,7 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "ipywidgets>=8.1.7",
-    "rich>=14.1.0",
+    "rich",
     "xlwings>=0.33.15",
 ]
 
