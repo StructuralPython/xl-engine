@@ -1,7 +1,6 @@
 [project]
 name = "xl-engine"
-version = "0.1.0"
-description = "Execute your existing Excel workbooks like they were Python functions. Uses XLWings."
+dynamic=["version", "description"]
 readme = "README.md"
 authors = [
     { name = "Connor Ferster", email = "connor@structuralpython.com" }
