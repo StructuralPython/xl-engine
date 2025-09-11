@@ -86,12 +86,12 @@ def excel_runner(
             demand_cells_to_change = {
                 cell_id: static_inputs[cell_id][iteration] 
                 for cell_id in demand_cell_ids
-                if valid_excel_reference(cell_id)
+                if cell_id not in static_identifier_keys
             }
             identifier_values = {
                 cell_id: str(static_inputs[cell_id][iteration])
                 for cell_id in demand_cell_ids
-                if not valid_excel_reference(cell_id)
+                if cell_id in static_identifier_keys
             }
             if identifier_values:
                 identifiers = "-".join([static_inputs[id_key][iteration] for id_key in static_identifier_keys])
@@ -202,14 +202,14 @@ def execute_workbook(
         ws = wb.sheets[sheet_idx]
         for cell_name, new_value in cells_to_change.items():
             try:
-                ws[cell_name].value = new_value
+                ws.range(cell_name).value = new_value
             except:
                 raise ValueError(f"Invalid input cell name: {cell_name}. Perhaps you made a typo?")
-    
+
         calculated_values = {} # Add afterwards
         for cell_to_retrieve in cells_to_retrieve:
             try:
-                retrieved_value = ws[cell_to_retrieve].value
+                retrieved_value = ws.range(cell_to_retrieve).value
             except:
                 raise ValueError(f"Invalid retrieval cell name: {cell_to_retrieve}. Perhaps you made a typo?")
             label = cell_to_retrieve
