@@ -3,6 +3,6 @@ A Python package that provides convenience functions using XLWings to parametriz
 execute, and save Excel workbooks.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 from xl_engine.excel_engine import create_condition_check, execute_workbook, excel_runner
