@@ -15,7 +15,7 @@ def excel_runner(
     xlsx_filepath,
     static_inputs: dict[str, list],
     dynamic_inputs: dict[str, dict[str, float]],
-    save_conditions: dict[str, callable],
+    success_conditions: dict[str, callable],
     static_identifier_keys: Optional[list[str]] = None,
     result_labels: Optional[dict[str, str]] = None,
     save_dir: Optional[str] = None,
@@ -40,9 +40,9 @@ def excel_runner(
         label to describe the iteration, e.g. the name of the design element.
         The values are dictionaries keyed by cell references with single values which will
         populate the workbook for every static iteration.
-    'save_conditions': a dictionary keyed by cell references whose values are unary callables
+    'success_conditions': a dictionary keyed by cell references whose values are unary callables
         which return a bool when passed the value retrieved from the workbook at the cell 
-        reference during each iteration. If all callables in the 'save_conditions' dict
+        reference during each iteration. If all callables in the 'success_conditions' dict
         return True, then that iteration of the workbook will be saved to disk. Use the
         create_condition_check() function in this module to quickly create such callables.
     'static_identifier_keys': The keys in 'static_inputs', which are not cell references,
@@ -105,7 +105,7 @@ def excel_runner(
                 calculated_results = execute_workbook(
                     xlsx_filepath, 
                     cells_to_change=cells_to_change,
-                    cells_to_retrieve=list(save_conditions.keys()),
+                    cells_to_retrieve=list(success_conditions.keys()),
                     sheet_idx=sheet_idx
                 )
                 if isinstance(result_labels, dict):
@@ -116,7 +116,7 @@ def excel_runner(
                 failed_results.update({design_tag: labeled_results})
 
                 save_condition_acc = []
-                for result_cell_id, save_condition in save_conditions.items():
+                for result_cell_id, save_condition in success_conditions.items():
                     calculated_result = calculated_results[result_cell_id]
                     save_condition_acc.append(save_condition(calculated_result))
                 variations_progress.update(variations_task, advance=1)
@@ -133,7 +133,7 @@ def excel_runner(
                     _ = execute_workbook(
                         xlsx_filepath, 
                         cells_to_change=cells_to_change,
-                        cells_to_retrieve=list(save_conditions.keys()),
+                        cells_to_retrieve=list(success_conditions.keys()),
                         new_filepath=f"{str(save_dir)}/{new_filename}",
                         sheet_idx=sheet_idx,
                     )

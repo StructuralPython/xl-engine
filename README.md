@@ -69,7 +69,7 @@ results = xl.excel_runner(
             "OptB": {"B2": 33},
             "OptC": {"B2": 55},
         },
-        save_conditions={"B6": dcr2},
+        success_conditions={"B6": dcr2},
         static_identifier_keys=["Labels"],
         result_labels={"B6": "meaningful_value"},
         save_dir=TEST_DATA_DIR / "design"
