@@ -17,6 +17,7 @@ def excel_runner(
     dynamic_inputs: dict[str, dict[str, float]],
     save_conditions: dict[str, callable],
     static_identifier_keys: Optional[list[str]] = None,
+    result_labels: Optional[dict[str, str]] = None,
     save_dir: Optional[str] = None,
     sheet_idx: int = 0,
 ) -> None:
@@ -42,12 +43,18 @@ def excel_runner(
     'save_conditions': a dictionary keyed by cell references whose values are unary callables
         which return a bool when passed the value retrieved from the workbook at the cell 
         reference during each iteration. If all callables in the 'save_conditions' dict
-        return True, then that iteration of the workbook will be saved to disk.
+        return True, then that iteration of the workbook will be saved to disk. Use the
+        create_condition_check() function in this module to quickly create such callables.
     'static_identifier_keys': The keys in 'static_inputs', which are not cell references,
         which will be used to create unique filenames whenever the save conditions are all
         True. e.g. if there is a key in 'static_inputs' called 'Label', then passing a list
         of ['Label'] as the static_identifier_keys will ensure that the data under the 'Label'
         key will be used as part of the unique filename.
+    'result_labels': A mapping of result cell references to what those cell references mean
+        for a human. e.g. if the result cell B6 referred to a "shear utilization ratio" then
+        the result_label dict might look like this: {"B6": "shear utilization ratio"}
+        The result label will be used in the returned results. If None, then the cell references
+        will be used instead.
     'save_dir': The directory to store saved workbooks
     'sheet_idx': The sheet to modify within the workbook.
     """
@@ -73,6 +80,7 @@ def excel_runner(
     panel = Panel(progress_group)
 
     main_task = main_progress.add_task("Primary Iterations", total=iterations)
+    dynamic_results = {}
     with Live(panel) as live:
         for iteration in range(iterations):
             demand_cells_to_change = {
@@ -85,8 +93,13 @@ def excel_runner(
                 for cell_id in demand_cell_ids
                 if not valid_excel_reference(cell_id)
             }
+            if identifier_values:
+                identifiers = "-".join([static_inputs[id_key][iteration] for id_key in static_identifier_keys])
+            else:
+                identifiers = f"{iteration}"
             variations_task = variations_progress.add_task("Sheet variations", total=len(dynamic_inputs.items()))
             variations_progress.reset(variations_task)
+            failed_results = {}
             for design_tag, design_cells_to_change in dynamic_inputs.items():
                 cells_to_change = demand_cells_to_change | design_cells_to_change
                 calculated_results = execute_workbook(
@@ -95,7 +108,13 @@ def excel_runner(
                     cells_to_retrieve=list(save_conditions.keys()),
                     sheet_idx=sheet_idx
                 )
-            
+                if isinstance(result_labels, dict):
+                    labeled_results = {result_labels[k]: v for k, v in calculated_results.items()}
+                else:
+                    labeled_results = calculated_results
+
+                failed_results.update({design_tag: labeled_results})
+
                 save_condition_acc = []
                 for result_cell_id, save_condition in save_conditions.items():
                     calculated_result = calculated_results[result_cell_id]
@@ -106,28 +125,27 @@ def excel_runner(
                     filepath = pathlib.Path(xlsx_filepath)
                     name = filepath.stem
                     suffix = filepath.suffix
-                    if identifier_values:
-                        identifiers = "-".join([static_identifier_keys[id_key] for id_key in static_identifier_keys])
-                    else:
-                        identifiers = f"{iteration}"
                     
                     new_filename = f"{name}-{identifiers}-{design_tag}{suffix}"
                     save_dir_path = pathlib.Path(save_dir)
                     if not save_dir_path.exists():
                         save_dir_path.mkdir(parents=True)
-                    calculated_results = execute_workbook(
+                    _ = execute_workbook(
                         xlsx_filepath, 
                         cells_to_change=cells_to_change,
                         cells_to_retrieve=list(save_conditions.keys()),
                         new_filepath=f"{str(save_dir)}/{new_filename}",
                         sheet_idx=sheet_idx,
                     )
+                    dynamic_results.update({identifiers: {"successful_key": design_tag} | labeled_results})
                     variations_progress.remove_task(variations_task)
                     break
             else:
                 variations_progress.remove_task(variations_task)
+                dynamic_results.update({identifiers: {"successful_key": None} | failed_results})
                 progress_group.renderables.append(Text(f"Variation: {iteration} did not meet the criteria"))
             main_progress.update(main_task, advance=1)
+    return dynamic_results
 
 
 def execute_workbook(
@@ -158,6 +176,23 @@ def execute_workbook(
         locations. Can be a str or pathlib.Path. Directories on
         the path must already exist because this function will not create them if
         they do not.
+
+    ### Example:
+
+        dcr2 = xl.create_condition_check(2, "ge")
+        results = xl.excel_runner(
+            "example_wb.xlsx",
+            static_inputs={"B1": [10, 20], "Labels": ["C01", "C02"]},
+            dynamic_inputs={
+                "OptA": {"B2": 22},
+                "OptB": {"B2": 33},
+                "OptC": {"B2": 55},
+        },
+        save_conditions={"B6": dcr2},
+        static_identifier_keys=["Labels"],
+        result_labels={"B6": "meaningful_value"},
+        save_dir=TEST_DATA_DIR / "design"
+        )
     """
     xlsx_filepath = pathlib.Path(xlsx_filepath)
     if not xlsx_filepath.exists():
@@ -209,6 +244,12 @@ def create_condition_check(check_against_value: float, op: str) -> callable:
     'check_against_value' the value that will be encoded in the function
         to check against.
     'op': str, one of {"ge", "le", "gt", "lt", "eq", "ne"}
+        - "ge" Greater-than-or-equal-to
+        - "le" Less-than-or-equal-to
+        - "gt" Greater-than
+        - "lt" Less-than
+        - "eq" Equal-to
+        - "ne" Not-equal-to
     """
     operators = {
         "ge": operator.ge,

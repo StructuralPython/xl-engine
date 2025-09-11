@@ -43,16 +43,18 @@ def test_execute_workbook():
 
 def test_excel_runner():
     dcr2 = xl.create_condition_check(2, "ge")
-    xl.excel_runner(
+    results = xl.excel_runner(
         TEST_DATA_DIR / "example_wb.xlsx",
-        demand_input_cell_arrays={"B1": [10, 20], "Labels": ["R", "S"]},
-        design_inputs={
+        static_inputs={"B1": [10, 20], "Labels": ["C01", "C02"]},
+        dynamic_inputs={
             "OptA": {"B2": 22},
             "OptB": {"B2": 33},
             "OptC": {"B2": 55},
         },
-        result_cells=["B4", "B5", "B6"],
         save_conditions={"B6": dcr2},
-        identifier_keys=["Labels"],
+        static_identifier_keys=["Labels"],
+        result_labels={"B6": "meaningful_value"},
         save_dir=TEST_DATA_DIR / "design"
     )
+    assert results['C01']['successful_key'] is None # No match found
+    assert results['C02']['successful_key'] == "OptA" # Option A worked passed the criteria
