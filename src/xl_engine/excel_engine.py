@@ -13,20 +13,47 @@ from rich.live import Live
 
 def excel_runner(
     xlsx_filepath,
-    demand_input_cell_arrays: dict[str, list],
-    design_inputs: dict[str, dict[str, float]],
-    result_cells: list[str],
+    static_inputs: dict[str, list],
+    dynamic_inputs: dict[str, dict[str, float]],
     save_conditions: dict[str, callable],
-    identifier_keys: Optional[list[str]] = None,
+    static_identifier_keys: Optional[list[str]] = None,
     save_dir: Optional[str] = None,
     sheet_idx: int = 0,
 ) -> None:
     """
-    Doc strign
+    Executes the Excel workbook at xlsx_filepath with each static_input and then for
+    each dynamic_input. The 'save_conditions' dictionary is a keyed by cell references
+    representing result cells. The values for the save_conditions are unary callables
+    (single argument) that return a bool. If all callables in 'save_conditions' return
+    True for that iteration, then the workbook with that iteration's inputs is saved
+    to disk. 
+
+    'static_inputs': a dictionary keyed by either data labels or cell references. The
+        values are lists of values (like columns in a table). Each index of the values
+        represent the data used for one iteration. For keys containing cell references,
+        the cell reference is used as a static input value to the workbook. For keys
+        that are not cell references, their values are accessible by 'static_identifier_keys',
+        which will be used for creating the unique filename in the event that the
+        'save_conditions' are satisfied.
+    'dynamic_inputs': a dictionary of dictionaries. The outer keys represent the unique
+        label to describe the iteration, e.g. the name of the design element.
+        The values are dictionaries keyed by cell references with single values which will
+        populate the workbook for every static iteration.
+    'save_conditions': a dictionary keyed by cell references whose values are unary callables
+        which return a bool when passed the value retrieved from the workbook at the cell 
+        reference during each iteration. If all callables in the 'save_conditions' dict
+        return True, then that iteration of the workbook will be saved to disk.
+    'static_identifier_keys': The keys in 'static_inputs', which are not cell references,
+        which will be used to create unique filenames whenever the save conditions are all
+        True. e.g. if there is a key in 'static_inputs' called 'Label', then passing a list
+        of ['Label'] as the static_identifier_keys will ensure that the data under the 'Label'
+        key will be used as part of the unique filename.
+    'save_dir': The directory to store saved workbooks
+    'sheet_idx': The sheet to modify within the workbook.
     """
 
-    demand_cell_ids = list(demand_input_cell_arrays.keys())
-    iterations = len(demand_input_cell_arrays[demand_cell_ids[0]])
+    demand_cell_ids = list(static_inputs.keys())
+    iterations = len(static_inputs[demand_cell_ids[0]])
 
     main_progress = Progress(
     TextColumn("{task.description}"),
@@ -49,23 +76,23 @@ def excel_runner(
     with Live(panel) as live:
         for iteration in range(iterations):
             demand_cells_to_change = {
-                cell_id: demand_input_cell_arrays[cell_id][iteration] 
+                cell_id: static_inputs[cell_id][iteration] 
                 for cell_id in demand_cell_ids
                 if valid_excel_reference(cell_id)
             }
             identifier_values = {
-                cell_id: str(demand_input_cell_arrays[cell_id][iteration])
+                cell_id: str(static_inputs[cell_id][iteration])
                 for cell_id in demand_cell_ids
                 if not valid_excel_reference(cell_id)
             }
-            variations_task = variations_progress.add_task("Sheet variations", total=len(design_inputs.items()))
+            variations_task = variations_progress.add_task("Sheet variations", total=len(dynamic_inputs.items()))
             variations_progress.reset(variations_task)
-            for design_tag, design_cells_to_change in design_inputs.items():
+            for design_tag, design_cells_to_change in dynamic_inputs.items():
                 cells_to_change = demand_cells_to_change | design_cells_to_change
                 calculated_results = execute_workbook(
                     xlsx_filepath, 
                     cells_to_change=cells_to_change,
-                    cells_to_retrieve=result_cells,
+                    cells_to_retrieve=list(save_conditions.keys()),
                     sheet_idx=sheet_idx
                 )
             
@@ -80,7 +107,7 @@ def excel_runner(
                     name = filepath.stem
                     suffix = filepath.suffix
                     if identifier_values:
-                        identifiers = "-".join([identifier_values[id_key] for id_key in identifier_values])
+                        identifiers = "-".join([static_identifier_keys[id_key] for id_key in static_identifier_keys])
                     else:
                         identifiers = f"{iteration}"
                     
@@ -91,7 +118,7 @@ def excel_runner(
                     calculated_results = execute_workbook(
                         xlsx_filepath, 
                         cells_to_change=cells_to_change,
-                        cells_to_retrieve=result_cells,
+                        cells_to_retrieve=list(save_conditions.keys()),
                         new_filepath=f"{str(save_dir)}/{new_filename}",
                         sheet_idx=sheet_idx,
                     )
