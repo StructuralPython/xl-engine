@@ -58,3 +58,38 @@ def test_excel_runner():
     )
     assert results['C01']['successful_key'] is None # No match found
     assert results['C02']['successful_key'] == "OptA" # Option A worked passed the criteria
+
+    results = xl.excel_runner(
+        TEST_DATA_DIR / "example_wb.xlsx",
+        static_inputs={"static": [10, 20], "Labels": ["C01", "C02"]},
+        dynamic_inputs={
+            "OptA": {"B2": 22},
+            "OptB": {"B2": 33},
+            "OptC": {"B2": 55},
+        },
+        success_conditions={"B6": dcr2},
+        static_identifier_keys=["Labels"],
+        result_labels={"B6": "meaningful_value"},
+        static_input_maps={"static": "B1"},
+        save_dir=TEST_DATA_DIR / "design"
+    )
+    assert results['C01']['successful_key'] is None # No match found
+    assert results['C02']['successful_key'] == "OptA" # Option A worked passed the criteria
+
+
+    results = xl.excel_runner(
+        TEST_DATA_DIR / "example_wb.xlsx",
+        static_inputs=[{"static": 10, "Labels": "C01"}, {"static": 20, "Labels": "C02"}],
+        dynamic_inputs={
+            "OptA": {"B2": 22},
+            "OptB": {"B2": 33},
+            "OptC": {"B2": 55},
+        },
+        success_conditions={"B6": dcr2},
+        static_identifier_keys=["Labels"],
+        result_labels={"B6": "meaningful_value"},
+        static_input_maps={"static": "B1"},
+        save_dir=TEST_DATA_DIR / "design"
+    )
+    assert results['C01']['successful_key'] is None # No match found
+    assert results['C02']['successful_key'] == "OptA" # Option A worked passed the criteria
