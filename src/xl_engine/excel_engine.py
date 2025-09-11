@@ -13,11 +13,12 @@ from rich.live import Live
 
 def excel_runner(
     xlsx_filepath,
-    static_inputs: dict[str, list],
+    static_inputs: dict[str, list[float | int | str]] | list[dict[str, float | int | str]],
     dynamic_inputs: dict[str, dict[str, float]],
     success_conditions: dict[str, callable],
     static_identifier_keys: Optional[list[str]] = None,
     result_labels: Optional[dict[str, str]] = None,
+    static_input_maps: Optional[dict[str, str]] = None,
     save_dir: Optional[str] = None,
     sheet_idx: int = 0,
 ) -> None:
@@ -29,13 +30,16 @@ def excel_runner(
     True for that iteration, then the workbook with that iteration's inputs is saved
     to disk. 
 
-    'static_inputs': a dictionary keyed by either data labels or cell references. The
-        values are lists of values (like columns in a table). Each index of the values
-        represent the data used for one iteration. For keys containing cell references,
+    'static_inputs': a dictionary where each key is a cell reference and the values are a
+        list of values to place in the cell OR a list of dictionaries, where each key is a
+        cell reference and the value is the value to be placed.
+        Each index in the list (whether the list is the inner or outer collection type)
+        represents the data used for one iteration. For keys containing cell references,
         the cell reference is used as a static input value to the workbook. For keys
         that are not cell references, their values are accessible by 'static_identifier_keys',
         which will be used for creating the unique filename in the event that the
-        'save_conditions' are satisfied.
+        'save_conditions' are satisfied. If the key is not in 'static_identifier_keys',
+        it will be assumed to be a cell reference.
     'dynamic_inputs': a dictionary of dictionaries. The outer keys represent the unique
         label to describe the iteration, e.g. the name of the design element.
         The values are dictionaries keyed by cell references with single values which will
@@ -55,12 +59,17 @@ def excel_runner(
         the result_label dict might look like this: {"B6": "shear utilization ratio"}
         The result label will be used in the returned results. If None, then the cell references
         will be used instead.
+    'static_input_maps': A mapping of keys in 'static_inputs' to cell references. This is useful
+        to provide when your data is keyed by some other process and you do not want to manually
+        re-map your data to be keyed by cell referdences. By providing 'static_input_maps', this
+        excel_runner will do that for you.
     'save_dir': The directory to store saved workbooks
     'sheet_idx': The sheet to modify within the workbook.
     """
-
-    demand_cell_ids = list(static_inputs.keys())
-    iterations = len(static_inputs[demand_cell_ids[0]])
+    static_inputs = format_static_inputs(static_inputs)
+    iterations = len(static_inputs)
+    if static_input_maps is None:
+        static_input_maps = dict()
 
     main_progress = Progress(
     TextColumn("{task.description}"),
@@ -83,18 +92,19 @@ def excel_runner(
     dynamic_results = {}
     with Live(panel) as live:
         for iteration in range(iterations):
+            static_data = static_inputs[iteration]
             demand_cells_to_change = {
-                cell_id: static_inputs[cell_id][iteration] 
-                for cell_id in demand_cell_ids
-                if cell_id not in static_identifier_keys
+                static_input_maps.get(k, k): v
+                for k, v in static_data.items()
+                if k not in static_identifier_keys
             }
             identifier_values = {
-                cell_id: str(static_inputs[cell_id][iteration])
-                for cell_id in demand_cell_ids
-                if cell_id in static_identifier_keys
+                k: str(v)
+                for k, v in static_data.items()
+                if k in static_identifier_keys
             }
             if identifier_values:
-                identifiers = "-".join([static_inputs[id_key][iteration] for id_key in static_identifier_keys])
+                identifiers = "-".join(identifier_values.values())
             else:
                 identifiers = f"{iteration}"
             variations_task = variations_progress.add_task("Sheet variations", total=len(dynamic_inputs.items()))
@@ -276,3 +286,26 @@ def valid_excel_reference(cell: str) -> bool:
         return False
     else:
         return True
+    
+
+def format_static_inputs(
+        static_inputs: dict[str, list[float | int | str]] | list[dict[str, float | int | str]]
+) -> list[dict[str, float | int | str]]:
+    """
+    Transforms a dictionary of str keys and list values to a list of dictionaries.
+
+    All sub-lists must be the same size.
+    """
+    if isinstance(static_inputs, list) and isinstance(static_inputs[0], dict):
+        return static_inputs
+    else:
+        column_data = [list_data for list_data in static_inputs.values()]
+        row_data = zip(*column_data)
+        outer_acc = []
+        for row in row_data:
+            inner_acc = {}
+            for idx, key in enumerate(static_inputs.keys()):
+                inner_acc.update({key: row[idx]})
+            outer_acc.append(inner_acc)
+    return outer_acc
+
