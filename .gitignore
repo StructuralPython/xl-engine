@@ -152,3 +152,4 @@ cython_debug/
 #.idea/
 tests/test_data/stored_results.xlsx
 /tests/test_data/design
+tests/test_data/~$example_wb.xlsx

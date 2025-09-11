@@ -28,12 +28,12 @@ def test_execute_workbook():
     results2 = xl.execute_workbook(
         TEST_DATA_DIR / "example_wb.xlsx",
         cells_to_change = {"B1": 33, "B2": 66},
-        cells_to_retrieve=['B4', 'B5'],
+        cells_to_retrieve={'B4': "label1", 'B5': "label2"},
         sheet_idx=1,
         new_filepath=TEST_DATA_DIR / "stored_results.xlsx"
     )
-    assert results2['B4'] == 44
-    assert math.isclose(results2['B5'], 39.6)
+    assert results2['label1'] == 44
+    assert math.isclose(results2['label2'], 39.6)
 
     import xlwings as xw
     with xw.Book(TEST_DATA_DIR / "stored_results.xlsx") as wb:
